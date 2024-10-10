@@ -1,0 +1,182 @@
+---
+title: "HW3_yh3683"
+author: "Yining He"
+date: "2024-10-08"
+output: github_document
+---
+
+# Problem 1
+devtools::install_github("p8105/p8105.datasets")
+
+```{r include=FALSE}
+library(p8105.datasets)
+library(tidyverse)
+library(ggplot2)
+library(janitor)
+data("ny_noaa")
+```
+
+```{r include=FALSE}
+dataset_summary <- list(
+  n_rows = nrow(ny_noaa),
+  n_columns = ncol(ny_noaa),
+  column_names = colnames(ny_noaa)
+)
+print(dataset_summary)
+```
+
+The dataset has `r nrow(ny_noaa)` observation and `r ncol(ny_noaa)` variables. The key variable in the dataset are `r colnames(ny_noaa)`.
+
+```{r echo=FALSE}
+missing_data_summary <- ny_noaa |>
+  summarize(
+    prcp_missing = mean(is.na(prcp)),
+    snow_missing = mean(is.na(snow)),
+    snwd_missing = mean(is.na(snwd)),
+    tmax_missing = mean(is.na(tmax)),
+    tmin_missing = mean(is.na(tmin))
+  )
+print(missing_data_summary)
+```
+
+The ny_noaa dataset shows 5.6% missing values for precipitation, 14.7% for snowfall, 22.8% for snow depth, and 43.7% missing for both maximum and minimum temperatures. This high level of maximum and minmun temeratures missingness, , may impact temperature trend analysis.
+
+```{r echo=FALSE}
+ny_noaa <- ny_noaa |>
+  mutate(
+    tmax = as.numeric(tmax),
+    tmin = as.numeric(tmin),
+    prcp = as.numeric(prcp),
+    snow = as.numeric(snow)
+  )
+ny_noaa_cleaned <- ny_noaa |>
+  mutate(
+    year = year(date),
+    month = month(date, label = TRUE),
+    day = day(date),
+    tmax = tmax / 10,     
+    tmin = tmin / 10,     
+    prcp = prcp / 10      
+  )
+snowfall_distribution <- ny_noaa_cleaned |>
+  filter(!is.na(snow)) |>
+  count(snow) |>
+  arrange(desc(n))
+head(snowfall_distribution)
+```
+
+The most frequently recorded snowfall amount is 0 mm, with 2,008,508 occurrences, which indicates that snow was absent on most days in this dataset.
+
+
+# Problem 2
+
+```{r include=FALSE}
+# Load datasets
+covar <- read_csv("nhanes_covar.csv",skip = 4) %>%  
+  janitor::clean_names()
+
+accel <- read_csv("nhanes_accel.csv") %>%  
+  janitor::clean_names()
+```
+
+```{r echo=FALSE}
+# Clean data
+covar <- covar %>%
+  mutate(
+    seqn = as.integer(seqn),
+    age = as.integer(age),
+    bmi = as.numeric(bmi),
+    
+    sex = case_when(
+      sex == 1 ~ "Male",
+      sex == 2 ~ "Female",
+      TRUE ~ as.character(sex)
+    ),
+    
+    education = case_when(
+      education == 1 ~ "Less than high school",
+      education == 2 ~ "High school equivalent",
+      education == 3 ~ "More than high school",
+      TRUE ~ as.character(education)  
+    )
+  )
+view(covar)
+```
+
+```{r echo=FALSE}
+# merge data
+merged_data <- merge(covar, accel, by = "seqn", all = TRUE)
+view(merged_data)
+
+
+cleaned_data <- merged_data %>%
+  filter(age >= 21) %>%    
+  drop_na(sex, age, bmi, education) 
+
+View(cleaned_data)
+```
+The cleaned_datat has `r nrow(cleaned_data)` observation and `r ncol(cleaned_data)` variables, after we cleaned and merged the data.
+```{r echo=FALSE}
+#Produce a reader-friendly table 
+education_gender_table <- cleaned_data %>%
+  count(sex, education) %>%
+  arrange(education, sex)  # Order by education level and gender
+
+View(education_gender_table)
+```
+
+```{r echo=FALSE}
+# Create a single violin plot with gender differentiation
+ggplot(cleaned_data, aes(x = education, y = age, fill = sex)) +
+  geom_violin(alpha = 0.5, position = position_dodge(width = 0.8)) +  # Separate violins by gender within each education level
+  stat_summary(fun = "median", geom = "point", position = position_dodge(width = 0.8), color = "blue", size = 2) +
+  labs(
+    title = "Age Distribution by Gender and Education Level",
+    x = "Education Level",
+    y = "Age",
+    fill = "Gender"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    plot.title = element_text(hjust = 0.5)
+  )
+
+```
+This violin plot shows age distributions by gender across three education levels: "High school equivalent," "Less than high school," and "More than high school." Wider sections indicate higher age density, with blue dots marking medians. Both genders in "High school equivalent" have a uniform age spread around a median of 60, while "Less than high school" shows a broader age range, especially for males. The "More than high school" group has a younger, more concentrated age distribution, particularly among females. Overall, those with higher education tend to be younger, while "Less than high school" shows greater age variability.
+
+
+```{r echo=FALSE}
+# Aggregate total activity for each participant
+
+agr_data <- cleaned_data %>%
+  mutate(total_activity = rowSums(select(., starts_with("min")), na.rm = TRUE))%>%
+  select(-starts_with("min"))
+
+view(agr_data)
+```
+
+```{r}
+# creat the plot
+ggplot(agr_data, aes(x = age, y = total_activity, color = sex)) +
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "loess", se = FALSE) +  # Add smooth trend lines
+  facet_wrap(~education) +  
+  labs(
+    title = "Total Activity vs Age by Gender and Education Level",
+    x = "Age",
+    y = "Total Activity",
+    color = "Gender"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(hjust = 0.5)
+  )
+
+```
+This plot shows total activity decreasing with age across education levels, with notable differences by gender. In the "High school equivalent" group, men’s activity drops sharply around age 50 from about 15,000 to 10,000, while women decline more gradually. For those with "Less than high school" education, men’s activity falls steeply from around 13,000 in their 20s to below 5,000 by age 70, whereas women drop more steadily to about 7,000. The "More than high school" group maintains stable activity near 12,000 until age 50, then declines to around 8,000, with women showing more consistency than men. Higher education is associated with more stable activity levels across ages.
+
+
+
+
