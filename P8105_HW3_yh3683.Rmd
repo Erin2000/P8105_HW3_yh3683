@@ -22,7 +22,7 @@ dataset_summary <- list(
   n_columns = ncol(ny_noaa),
   column_names = colnames(ny_noaa)
 )
-print(dataset_summary)
+view(dataset_summary)
 ```
 
 The dataset has `r nrow(ny_noaa)` observation and `r ncol(ny_noaa)` variables. The key variable in the dataset are `r colnames(ny_noaa)`.
@@ -36,7 +36,7 @@ missing_data_summary <- ny_noaa |>
     tmax_missing = mean(is.na(tmax)),
     tmin_missing = mean(is.na(tmin))
   )
-print(missing_data_summary)
+view(missing_data_summary)
 ```
 
 The ny_noaa dataset shows 5.6% missing values for precipitation, 14.7% for snowfall, 22.8% for snow depth, and 43.7% missing for both maximum and minimum temperatures. This high level of maximum and minmun temeratures missingness, , may impact temperature trend analysis.
@@ -115,14 +115,20 @@ cleaned_data <- merged_data %>%
 
 View(cleaned_data)
 ```
+
 The cleaned_datat has `r nrow(cleaned_data)` observation and `r ncol(cleaned_data)` variables, after we cleaned and merged the data.
+
+A reader-friendly table
 ```{r echo=FALSE}
 #Produce a reader-friendly table 
 education_gender_table <- cleaned_data %>%
-  count(sex, education) %>%
-  arrange(education, sex)  # Order by education level and gender
+  count(education, sex) %>%
+  pivot_wider(names_from = sex, values_from = n, values_fill = 0) %>%
+  mutate(Total = Female + Male) %>%
+  arrange(education)  
 
-View(education_gender_table)
+education_gender_table
+
 ```
 
 ```{r echo=FALSE}
@@ -143,6 +149,7 @@ ggplot(cleaned_data, aes(x = education, y = age, fill = sex)) +
   )
 
 ```
+
 This violin plot shows age distributions by gender across three education levels: "High school equivalent," "Less than high school," and "More than high school." Wider sections indicate higher age density, with blue dots marking medians. Both genders in "High school equivalent" have a uniform age spread around a median of 60, while "Less than high school" shows a broader age range, especially for males. The "More than high school" group has a younger, more concentrated age distribution, particularly among females. Overall, those with higher education tend to be younger, while "Less than high school" shows greater age variability.
 
 
@@ -156,7 +163,7 @@ agr_data <- cleaned_data %>%
 view(agr_data)
 ```
 
-```{r}
+```{r echo=FALSE}
 # creat the plot
 ggplot(agr_data, aes(x = age, y = total_activity, color = sex)) +
   geom_point(alpha = 0.5) + 
@@ -175,8 +182,30 @@ ggplot(agr_data, aes(x = age, y = total_activity, color = sex)) +
   )
 
 ```
+
 This plot shows total activity decreasing with age across education levels, with notable differences by gender. In the "High school equivalent" group, men’s activity drops sharply around age 50 from about 15,000 to 10,000, while women decline more gradually. For those with "Less than high school" education, men’s activity falls steeply from around 13,000 in their 20s to below 5,000 by age 70, whereas women drop more steadily to about 7,000. The "More than high school" group maintains stable activity near 12,000 until age 50, then declines to around 8,000, with women showing more consistency than men. Higher education is associated with more stable activity levels across ages.
 
+```{r include=FALSE}
+activity_data <- cleaned_data %>%
+  group_by(education, sex) %>%
+  summarise(across(starts_with("min"), ~ mean(.), .names = "mean_{.col}"), .groups = "drop") %>%
+  pivot_longer(cols = starts_with("mean_"), names_to = "time", values_to = "mean") %>%
+  mutate(
+    time = as.numeric(substring(time, 9)) / 60  # Convert time to hours
+  )
+```
 
+```{r echo=FALSE}
+ggplot(activity_data, aes(x = time, y = mean, color = sex)) +
+  geom_line() +
+  facet_wrap(education ~ ., labeller = labeller(education = as_labeller(education_gender_table))) +
+  labs(title = "24-Hour Activity by Education and Gender",
+       x = "Time (hours)",
+       y = "Mean value of activity",
+       color = "Gender") +
+  theme_minimal() +
+  scale_color_manual(values = c("pink", "#98FF98"), name = "Gender")
+```
+The figure shows 24-hour activity patterns by education level and gender. The "Less than high school" group has the highest morning and afternoon peaks, reaching around 17 units at 10:00 AM, suggesting more physically demanding routines. The "More than high school" group has lower, steadier peaks, topping at about 14 units, indicating structured daily schedules. Across all groups, activity begins increasing around 6:00 AM, peaks around 10:00 AM and 4:00 PM, and drops to about 5-6 units by midnight. Females consistently have slightly higher activity than males during peak hours, suggesting greater engagement in daily activities.
 
 
