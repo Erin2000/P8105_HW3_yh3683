@@ -127,7 +127,7 @@ education_gender_table <- cleaned_data %>%
   mutate(Total = Female + Male) %>%
   arrange(education)  
 
-education_gender_table
+print(education_gender_table)
 
 ```
 
@@ -196,6 +196,7 @@ activity_data <- cleaned_data %>%
 ```
 
 ```{r echo=FALSE}
+#creat the table
 ggplot(activity_data, aes(x = time, y = mean, color = sex)) +
   geom_line() +
   facet_wrap(education ~ ., labeller = labeller(education = as_labeller(education_gender_table))) +
@@ -206,6 +207,106 @@ ggplot(activity_data, aes(x = time, y = mean, color = sex)) +
   theme_minimal() +
   scale_color_manual(values = c("pink", "#98FF98"), name = "Gender")
 ```
+
 The figure shows 24-hour activity patterns by education level and gender. The "Less than high school" group has the highest morning and afternoon peaks, reaching around 17 units at 10:00 AM, suggesting more physically demanding routines. The "More than high school" group has lower, steadier peaks, topping at about 14 units, indicating structured daily schedules. Across all groups, activity begins increasing around 6:00 AM, peaks around 10:00 AM and 4:00 PM, and drops to about 5-6 units by midnight. Females consistently have slightly higher activity than males during peak hours, suggesting greater engagement in daily activities.
 
+# Problem 3
+```{r echo=FALSE}
+# Import each file with year and month as identifiers
+jan_2020 <- read_csv("Jan 2020 Citi.csv") %>%
+  mutate(year = 2020, month = "Jan")
+
+july_2020 <- read_csv("July 2020 Citi.csv") %>%
+  mutate(year = 2020, month = "July")
+
+jan_2024 <- read_csv("Jan 2024 Citi.csv") %>%
+  mutate(year = 2024, month = "Jan")
+
+july_2024 <- read_csv("July 2024 Citi.csv") %>%
+  mutate(year = 2024, month = "July")
+#combine
+citi_bike_data <- bind_rows(jan_2020, july_2020, jan_2024, july_2024)
+
+# Create a summary table showing total rides by year, month, and rider type
+summary_table <- citi_bike_data %>%
+  group_by(year, month, member_casual) %>%
+  summarise(total_rides = n(), .groups = "drop") %>%
+  pivot_wider(names_from = member_casual, values_from = total_rides, values_fill = 0) %>%
+  rename(`Member Rides` = member, `Casual Rides` = casual)
+
+print(summary_table)
+```
+
+The table shows significant growth in Citi Bike rides from 2020 to 2024, with both casual and member rides increasing. July consistently sees more rides than January, indicating a seasonal trend favoring warmer months. Member rides have risen sharply, particularly in July 2024 with 36,262 rides, suggesting a growing subscriber base. Members consistently outnumber casual riders, reflecting Citi Bike's success in attracting regular users. 
+
+```{r echo=FALSE}
+# Filter data for July 2024
+july_2024_data <- citi_bike_data %>%
+  filter(year == 2024, month == "July")
+# Find the 5 most popular starting stations
+top_starting_stations <- july_2024_data %>%
+  count(start_station_name) %>%
+  arrange(desc(n)) %>%
+  slice_head(n = 5) %>%
+  rename("Starting Station" = start_station_name, "Number of Rides" = n)
+
+print(top_starting_stations)
+
+```
+
+The table shows the top five starting stations for Citi Bike rides in July 2024. Pier 61 at Chelsea Piers leads with 163 rides, followed by University Pl & E 14 St (155) and W 21 St & 6 Ave (152). West St & Chambers St and W 31 St & 7 Ave also rank high. 
+
+
+
+
+```{r}
+median_duration <- citi_bike_data %>%
+  group_by(year, month, weekdays) %>%
+  summarise(median_duration = median(duration), .groups = 'drop')
+
+median_duration$month <- factor(median_duration$month, levels = c("Jan", "July"))
+median_duration$weekdays <- factor(median_duration$weekdays, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+# create a plot of the median ride duration with facets for year and month
+ggplot(median_duration, aes(x = weekdays, y = median_duration, fill = month)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ year) +
+  labs(
+    title = "Median Ride Duration by Day of the Week, Month, and Year",
+    x = "Day of the Week",
+    y = "Median Ride Duration (minutes)",
+    fill = "Month"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+The plot shows that median ride durations are higher on weekends than weekdays, with July having consistently longer durations than January across both years. In 2024, ride durations appear slightly lower than in 2020, particularly in July, possibly due to the increased use of electric bikes for shorter trips. Overall, weekend and seasonal patterns indicate longer rides on weekends and in warmer months.
+
+```{r echo=FALSE}
+data_2024 <- citi_bike_data %>% 
+  filter(year == 2024)
+
+# correct order
+data_2024$month <- factor(data_2024$month, levels = c("Jan", "July"))
+
+# Calculate average ride duration by month, membership status, and bike type
+avg_duration <- data_2024 %>%
+  group_by(month, member_casual, rideable_type) %>%
+  summarise(avg_duration = mean(duration), .groups = 'drop')
+
+# create the plot
+ggplot(avg_duration, aes(x = month, y = avg_duration, fill = rideable_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ member_casual) +
+  labs(
+    title = "Avg Ride Duration by Month, Membership, and Bike Type (2024)",
+    x = "Month",
+    y = "Average Ride Duration (minutes)",
+    fill = "Bike Type"
+  ) +
+  theme_minimal()
+```
+
+The chart shows that in 2024, casual riders have longer average ride durations than members. Classic bikes are associated with longer rides than electric bikes across both groups. In July, ride durations are generally higher for both membership types and bike types compared to January.
 
