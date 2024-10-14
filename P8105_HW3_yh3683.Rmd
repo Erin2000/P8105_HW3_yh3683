@@ -11,10 +11,12 @@ devtools::install_github("p8105/p8105.datasets")
 
 ```{r include=FALSE}
 library(p8105.datasets)
+library(ggridges)
 library(tidyverse)
 library(ggplot2)
 library(janitor)
 library(lubridate)
+library(patchwork)
 ```
 
 
@@ -110,7 +112,21 @@ From the hex plot we see that while there is some variability, the majority of t
 
 From the ridge plot, we see a multimodal density of snowfall within a given year. Most stations see between 0 and  35 mm of snow in a year. Then there is a another group of stations that see about 45 mm of snow, and another group that sees nearly 80 mm. It is likely this multimodality stems from the conversion of measurements in one system (fractions of an inch) to another (using the metric system), which was also noted in the table of common values. 
 
-*I can not use the code you provided to generate the second plot.* 
+```{r}
+hex = 
+  ny_noaa %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_hex()
+
+ridge = 
+  ny_noaa %>% 
+  filter(snow < 100, snow > 0) %>%
+  ggplot(aes(x = snow, y = as.factor(year))) + 
+  geom_density_ridges()
+
+hex + ridge
+```
+
 
 
 # Problem 2
